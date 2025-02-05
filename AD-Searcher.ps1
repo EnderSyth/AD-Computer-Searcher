@@ -48,10 +48,51 @@ foreach ($Domain in $Domains) {
                 -Status "Computer $currentComputer of $computerCount" `
                 -PercentComplete $computerProgress -Id 2 -ParentId 1
             
-            # Convert lastLogonTimestamp if it exists
-            $LastLogon = if ($Computer.Properties["lastLogonTimestamp"]) {
-                [DateTime]::FromFileTime([Int64]::Parse($Computer.Properties["lastLogonTimestamp"][0]))
-            } else { $null }
+            # Convert lastLogonTimestamp if it exists and is valid
+            $LastLogon = $null
+            if ($Computer.Properties["lastLogonTimestamp"]) {
+                try {
+                    $timestamp = $Computer.Properties["lastLogonTimestamp"][0]
+                    if ($timestamp -match '^\d+
+            
+            # Create computer object and add to array
+            $ComputerObj = [PSCustomObject]@{
+                ComputerName = $Computer.Properties["name"][0]
+                OperatingSystem = $Computer.Properties["operatingSystem"][0]
+                Domain = $Domain.Name
+                LastLogon = $LastLogon
+                DistinguishedName = $Computer.Properties["distinguishedName"][0]
+            }
+            
+            # Add to array
+            $AllComputers += $ComputerObj
+        }
+        
+        Write-Host "Found $($Results.Count) computers in $($Domain.Name)" -ForegroundColor Yellow
+    }
+    catch {
+        Write-Warning "Error scanning domain $($Domain.Name): $($_.Exception.Message)"
+    }
+}
+
+# Clear progress bars
+Write-Progress -Activity "Scanning Domains" -Id 1 -Completed
+Write-Progress -Activity "Processing Computers" -Id 2 -Completed
+
+# Export to CSV for comparison with SCOM
+$timestamp = Get-Date -Format 'yyyy-MM-dd_HH-mm'
+$exportPath = "AD_Computers_$timestamp.csv"
+$AllComputers | Export-Csv -Path $exportPath -NoTypeInformation
+
+Write-Host "`nInventory Complete!" -ForegroundColor Green
+Write-Host "Total computers found across all domains: $($AllComputers.Count)" -ForegroundColor Green
+Write-Host "Results exported to: $exportPath" -ForegroundColor Green) {  # Verify it contains only digits
+                        $LastLogon = [DateTime]::FromFileTime([Int64]::Parse($timestamp))
+                    }
+                }
+                catch {
+                    Write-Verbose "Could not parse lastLogonTimestamp for computer $($Computer.Properties["name"][0]): $timestamp"
+                }
             
             # Create computer object and add to array
             $ComputerObj = [PSCustomObject]@{
